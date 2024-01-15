@@ -1,6 +1,7 @@
 //! Test suite for the Web and headless browsers.
 
 extern crate wasm_bindgen_test;
+
 use wasm_bindgen_test::*;
 use web_sys::console;
 
@@ -30,6 +31,30 @@ impl Hasher for Blake3Hasher {
     }
 }
 
+struct XXHash64;
+impl Hasher for XXHash64 {
+    fn output_size(&self) -> usize {
+        8
+    }
+
+    fn hash(&self, data: &[u8], out: &mut [u8]) {
+        let hash = xxhash_rust::xxh3::xxh3_64(data);
+        out.copy_from_slice(&hash.to_le_bytes());
+    }
+}
+
+struct XXHash128;
+impl Hasher for XXHash128 {
+    fn output_size(&self) -> usize {
+        16
+    }
+
+    fn hash(&self, data: &[u8], out: &mut [u8]) {
+        let hash = xxhash_rust::xxh3::xxh3_128(data);
+        out.copy_from_slice(&hash.to_le_bytes());
+    }
+}
+
 struct PolymurHasher {
     inner: polymur_hash::PolymurHash,
 }
@@ -40,6 +65,20 @@ impl Hasher for PolymurHasher {
 
     fn hash(&self, data: &[u8], out: &mut [u8]) {
         let hash = self.inner.hash(data);
+        out.copy_from_slice(&hash.to_le_bytes());
+    }
+}
+
+struct Komihash;
+impl Hasher for Komihash {
+    fn output_size(&self) -> usize {
+        8
+    }
+
+    fn hash(&self, data: &[u8], out: &mut [u8]) {
+        let mut hasher = komihash::KomiHasher::new(0);
+        std::hash::Hasher::write(&mut hasher, data);
+        let hash = std::hash::Hasher::finish(&hasher);
         out.copy_from_slice(&hash.to_le_bytes());
     }
 }
@@ -87,4 +126,31 @@ fn blake() {
     console::time_with_label("blake");
     runner.run(Blake3Hasher);
     console::time_end_with_label("blake");
+}
+
+#[wasm_bindgen_test]
+fn xxhash64() {
+    let runner = Runner::new(4096, 10000);
+
+    console::time_with_label("xxhash64");
+    runner.run(XXHash64);
+    console::time_end_with_label("xxhash64");
+}
+
+#[wasm_bindgen_test]
+fn xxhash128() {
+    let runner = Runner::new(4096, 10000);
+
+    console::time_with_label("xxhash128");
+    runner.run(XXHash128);
+    console::time_end_with_label("xxhash128");
+}
+
+#[wasm_bindgen_test]
+fn komihash() {
+    let runner = Runner::new(4096, 10000);
+
+    console::time_with_label("komihash");
+    runner.run(Blake3Hasher);
+    console::time_end_with_label("komihash");
 }
